@@ -8,6 +8,7 @@ After resetting keys, correcting image references, and validating network access
 
 I also tinkered with the AZURE CLI and discovered command that took my troubleshooting to a next level  ("az find" which is a CLI AI assistant that helps with syntax and examples of anything right within the CLI, game changer in my opinion)
 
+I also created a Key Vault from the CLI and set a secret into it after doing a recap of the Entra ID and RBAC.
 
 A long day, but a rewarding one. Growth happens in the debugging.
 

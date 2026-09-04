@@ -1,0 +1,16 @@
+    1  ls
+    2  ls -h
+    3  -h
+    4  -help
+    5  --help
+    6  man ls
+    7  man
+    8  man man
+    9  ls
+   10  pwd
+   11  cd
+   12  cd ..
+   13  ls
+   14  cd /abdul
+   15  cd /home/abdul
+   16  history > commands.txt

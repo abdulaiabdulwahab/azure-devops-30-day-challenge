@@ -13,7 +13,7 @@ I also created a Key Vault from the CLI and set a secret into it after doing a r
 A long day, but a rewarding one. Growth happens in the debugging.
 
 
-
+#Azure #AzureDevOps #MicrosoftAzure #DevOps #CloudComputing #CloudEngineering #AzureNetworking #ARMTemplates #InfrastructureAsCode #IaC #AzureFirewall #Networking #LearningInPublic #30DaysOfCloudchallenge #Ibebuilding
 
 
 

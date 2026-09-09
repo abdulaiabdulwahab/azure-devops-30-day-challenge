@@ -1,77 +1,41 @@
-trigger:
-- main
-
-pool:
-  vmImage: ubuntu-latest
-
-variables:
-- group: terraform-secrets
-
-- name: terraformDirectory
-  value: '$(System.DefaultWorkingDirectory)/learn-terraform-azure'
-
-- name: terraformVersion
-  value: '1.13.0'
-
-steps:
-- checkout: self
-  displayName: 'Checkout repository'
-
-- bash: |
-    set -e
-
-    wget -q \
-      "https://releases.hashicorp.com/terraform/$(terraformVersion)/terraform_$(terraformVersion)_linux_amd64.zip"
-
-    unzip -q \
-      "terraform_$(terraformVersion)_linux_amd64.zip"
-
-    sudo mv terraform /usr/local/bin/terraform
-
-    terraform version
-  displayName: 'Install Terraform'
-
 - task: AzureCLI@2
-  displayName: 'Terraform Init, Validate and Plan'
-
+  displayName: 'Test Azure WIF'
   inputs:
     azureSubscription: 'sc-azure-terraform-dev'
     scriptType: bash
     scriptLocation: inlineScript
     addSpnToEnvironment: true
-    workingDirectory: '$(terraformDirectory)'
-
     inlineScript: |
       set -e
 
-      export ARM_CLIENT_ID="$servicePrincipalId"
-      export ARM_TENANT_ID="$tenantId"
-      export ARM_SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
-      export ARM_USE_OIDC=true
-      export ARM_OIDC_TOKEN="$idToken"
-
-      echo "Azure authentication:"
+      echo "Azure CLI authentication test"
       az account show \
-        --query "{name:name,id:id}" \
+        --query "{name:name,id:id,tenantId:tenantId}" \
         -o table
 
       echo ""
-      echo "Terraform Init"
-      terraform init -input=false
+      echo "Checking WIF variables..."
+
+      if [ -n "$servicePrincipalId" ]; then
+        echo "servicePrincipalId is present"
+      else
+        echo "servicePrincipalId is MISSING"
+        exit 1
+      fi
+
+      if [ -n "$tenantId" ]; then
+        echo "tenantId is present"
+      else
+        echo "tenantId is MISSING"
+        exit 1
+      fi
+
+      if [ -n "$idToken" ]; then
+        echo "idToken is present"
+      else
+        echo "idToken is MISSING"
+        exit 1
+      fi
 
       echo ""
-      echo "Terraform Validate"
-      terraform validate
-
-      echo ""
-      echo "Terraform Plan"
-      terraform plan \
-        -input=false \
-        -out=tfplan
-
-      echo ""
-      echo "Terraform Plan Output"
-      terraform show -no-color tfplan
-
-  env:
-    TF_TOKEN_app_terraform_io: $(TF_TOKEN_app_terraform_io)
+      echo "Azure WIF test successful"

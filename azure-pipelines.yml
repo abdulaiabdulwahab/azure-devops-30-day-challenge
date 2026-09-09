@@ -34,3 +34,14 @@ steps:
     terraform fmt -check -recursive
   workingDirectory: '$(terraformDirectory)'
   displayName: Terraform Format Check
+
+- task: AzureCLI@2
+  displayName: Test Azure Service Connection
+  inputs:
+    azureSubscription: 'sc-azure-terraform-dev'
+    scriptType: bash
+    scriptLocation: inlineScript
+    addSpnToEnvironment: true
+    workingDirectory: '$(terraformDirectory)'
+    inlineScript: |
+      az account show -o table

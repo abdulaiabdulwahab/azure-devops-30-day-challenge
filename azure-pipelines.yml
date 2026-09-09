@@ -14,5 +14,18 @@ variables:
   value: '1.13.0'
 
 steps:
-- script: echo "Variables loaded successfully"
-  displayName: Test variables
+- checkout: self
+
+- bash: |
+    set -e
+
+    wget -q \
+      "https://releases.hashicorp.com/terraform/$(terraformVersion)/terraform_$(terraformVersion)_linux_amd64.zip"
+
+    unzip -q \
+      "terraform_$(terraformVersion)_linux_amd64.zip"
+
+    sudo mv terraform /usr/local/bin/terraform
+
+    terraform version
+  displayName: Install Terraform

@@ -1,3 +1,4 @@
+```yaml
 trigger:
   branches:
     include:
@@ -18,7 +19,7 @@ variables:
     value: '$(System.DefaultWorkingDirectory)/learn-terraform-azure'
 
   - name: terraformVersion
-    value: '1.16.1'
+    value: '1.13.0'
 
   - name: azureServiceConnection
     value: 'sc-azure-terraform-dev'
@@ -84,22 +85,19 @@ stages:
 
     # ------------------------------------------------------
     # Terraform Init / Validate / Plan
-    #
-    # AzureCLI@2 authenticates with the WIF service connection.
-    # addSpnToEnvironment exposes the federated identity values.
     # ------------------------------------------------------
 
     - task: AzureCLI@2
       displayName: 'Terraform Init, Validate and Plan'
 
       inputs:
-        azureSubscription: 'sc-azure-terraform-dev'
+        azureSubscription: '$(azureServiceConnection)'
         scriptType: bash
         scriptLocation: inlineScript
         addSpnToEnvironment: true
         workingDirectory: '$(terraformDirectory)'
-        inlineScript: |
 
+        inlineScript: |
           set -e
 
           echo "Preparing Azure authentication for Terraform..."
@@ -146,8 +144,6 @@ stages:
           echo ""
           echo "Terraform plan successfully created."
 
-      workingDirectory: '$(terraformDirectory)'
-
       env:
         TF_TOKEN_app_terraform_io: $(TF_TOKEN_app_terraform_io)
 
@@ -157,7 +153,6 @@ stages:
     # ------------------------------------------------------
 
     - bash: |
-
         set -e
 
         mkdir -p "$(Build.ArtifactStagingDirectory)/terraform-plan"
@@ -203,12 +198,6 @@ stages:
 
   jobs:
 
-  # Deployment job is required because we target the
-  # terraform-production Azure DevOps Environment.
-  #
-  # The manual Approval Check configured on that environment
-  # runs before this deployment begins.
-
   - deployment: TerraformApply
     displayName: 'Apply Approved Terraform Plan'
 
@@ -226,8 +215,7 @@ stages:
           steps:
 
           # ------------------------------------------------
-          # Deployment jobs do not automatically checkout
-          # the repository, so explicitly checkout GitHub.
+          # Checkout repository
           # ------------------------------------------------
 
           - checkout: self
@@ -235,11 +223,10 @@ stages:
 
 
           # ------------------------------------------------
-          # Install EXACT SAME Terraform version
+          # Install same Terraform version
           # ------------------------------------------------
 
           - bash: |
-
               set -e
 
               echo "Installing Terraform $(terraformVersion)..."
@@ -257,7 +244,7 @@ stages:
 
 
           # ------------------------------------------------
-          # Download plan created in Stage 1
+          # Download saved Terraform plan
           # ------------------------------------------------
 
           - task: DownloadPipelineArtifact@2
@@ -269,10 +256,11 @@ stages:
 
 
           # ------------------------------------------------
-          # Display downloaded files without exposing secrets
+          # Verify downloaded artifact
           # ------------------------------------------------
 
           - bash: |
+              set -e
 
               echo "Downloaded Terraform artifact:"
 
@@ -289,15 +277,13 @@ stages:
             displayName: 'Terraform Apply'
 
             inputs:
-              azureSubscription: 'sc-azure-terraform-dev'
+              azureSubscription: '$(azureServiceConnection)'
               scriptType: bash
               scriptLocation: inlineScript
               addSpnToEnvironment: true
               workingDirectory: '$(terraformDirectory)'
 
               inlineScript: |
-                
-
                 set -e
 
                 echo "Preparing Azure authentication for Terraform..."
@@ -334,7 +320,6 @@ stages:
                 echo ""
                 echo "Terraform deployment completed."
 
-            workingDirectory: '$(terraformDirectory)'
-
             env:
               TF_TOKEN_app_terraform_io: $(TF_TOKEN_app_terraform_io)
+```

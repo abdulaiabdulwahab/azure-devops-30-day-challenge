@@ -1,3 +1,4 @@
+```yaml
 trigger:
 - main
 
@@ -14,10 +15,23 @@ variables:
   value: '1.13.0'
 
 steps:
+
+# ==========================================================
+# 1. CHECKOUT GITHUB REPOSITORY
+# ==========================================================
+
 - checkout: self
+  displayName: Checkout GitHub Repository
+
+
+# ==========================================================
+# 2. INSTALL TERRAFORM
+# ==========================================================
 
 - bash: |
     set -e
+
+    echo "Installing Terraform $(terraformVersion)..."
 
     wget -q \
       "https://releases.hashicorp.com/terraform/$(terraformVersion)/terraform_$(terraformVersion)_linux_amd64.zip"
@@ -27,35 +41,114 @@ steps:
 
     sudo mv terraform /usr/local/bin/terraform
 
+    echo ""
+    echo "Installed Terraform version:"
     terraform version
+
   displayName: Install Terraform
 
+
+# ==========================================================
+# 3. VERIFY TERRAFORM DIRECTORY
+# ==========================================================
+
 - bash: |
+    set -e
+
+    echo "Terraform working directory:"
+    pwd
+
+    echo ""
+    echo "Terraform files:"
+    ls -la
+
+  workingDirectory: '$(terraformDirectory)'
+  displayName: Verify Terraform Directory
+
+
+# ==========================================================
+# 4. TERRAFORM FORMAT CHECK
+# ==========================================================
+
+- bash: |
+    set -e
+
+    echo "Checking Terraform formatting..."
+
     terraform fmt -check -recursive
+
+    echo ""
+    echo "Terraform formatting check passed."
+
   workingDirectory: '$(terraformDirectory)'
   displayName: Terraform Format Check
 
+
+# ==========================================================
+# 5. TEST AZURE SERVICE CONNECTION
+# ==========================================================
+
 - task: AzureCLI@2
   displayName: Test Azure Service Connection
+
   inputs:
     azureSubscription: 'sc-azure-terraform-dev'
     scriptType: bash
     scriptLocation: inlineScript
     addSpnToEnvironment: true
     workingDirectory: '$(terraformDirectory)'
+
     inlineScript: |
-      az account show -o table
+      set -e
+
+      echo "Testing Azure authentication..."
+
+      echo ""
+      echo "Azure account information:"
+
+      az account show \
+        --query "{subscriptionName:name,subscriptionId:id,tenantId:tenantId}" \
+        -o table
+
+      echo ""
+      echo "Workload Identity Federation variables received."
+
+      if [ -z "$servicePrincipalId" ]; then
+        echo "ERROR: servicePrincipalId was not provided."
+        exit 1
+      fi
+
+      if [ -z "$tenantId" ]; then
+        echo "ERROR: tenantId was not provided."
+        exit 1
+      fi
+
+      if [ -z "$idToken" ]; then
+        echo "ERROR: OIDC idToken was not provided."
+        exit 1
+      fi
+
+      echo "Azure service connection authentication succeeded."
+
+
+# ==========================================================
+# 6. TERRAFORM INIT + VALIDATE + PLAN
+# ==========================================================
 
 - task: AzureCLI@2
   displayName: Terraform Init Validate and Plan
+
   inputs:
     azureSubscription: 'sc-azure-terraform-dev'
     scriptType: bash
     scriptLocation: inlineScript
     addSpnToEnvironment: true
     workingDirectory: '$(terraformDirectory)'
+
     inlineScript: |
       set -e
+
+      echo "Configuring Terraform Azure authentication..."
 
       export ARM_CLIENT_ID="$servicePrincipalId"
       export ARM_TENANT_ID="$tenantId"
@@ -63,9 +156,54 @@ steps:
       export ARM_USE_OIDC=true
       export ARM_OIDC_TOKEN="$idToken"
 
+      echo ""
+      echo "Azure authentication environment configured."
+
+      echo ""
+      echo "Subscription ID:"
+      echo "$ARM_SUBSCRIPTION_ID"
+
+      echo ""
+      echo "Running terraform init..."
+
       terraform init -input=false
+
+      echo ""
+      echo "Terraform init completed."
+
+      echo ""
+      echo "Running terraform validate..."
+
       terraform validate
-      terraform plan -input=false -out=tfplan
+
+      echo ""
+      echo "Terraform validation completed."
+
+      echo ""
+      echo "Creating Terraform plan..."
+
+      terraform plan \
+        -input=false \
+        -out=tfplan
+
+      echo ""
+      echo "Terraform plan created."
+
+      echo ""
+      echo "Creating human-readable plan..."
+
+      terraform show \
+        -no-color \
+        tfplan > tfplan.txt
+
+      echo ""
+      echo "Generated files:"
+
+      ls -lh tfplan tfplan.txt
+
+      echo ""
+      echo "TEST 4 COMPLETED SUCCESSFULLY."
 
   env:
     TF_TOKEN_app_terraform_io: $(TF_TOKEN_app_terraform_io)
+```

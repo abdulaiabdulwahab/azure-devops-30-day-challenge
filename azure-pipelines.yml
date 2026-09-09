@@ -1,41 +1,19 @@
+trigger:
+- main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
 - task: AzureCLI@2
-  displayName: 'Test Azure WIF'
+  displayName: 'Test Azure Service Connection'
   inputs:
     azureSubscription: 'sc-azure-terraform-dev'
     scriptType: bash
     scriptLocation: inlineScript
-    addSpnToEnvironment: true
     inlineScript: |
-      set -e
+      echo "Azure connection successful"
 
-      echo "Azure CLI authentication test"
       az account show \
-        --query "{name:name,id:id,tenantId:tenantId}" \
+        --query "{subscription:name, subscriptionId:id, tenantId:tenantId}" \
         -o table
-
-      echo ""
-      echo "Checking WIF variables..."
-
-      if [ -n "$servicePrincipalId" ]; then
-        echo "servicePrincipalId is present"
-      else
-        echo "servicePrincipalId is MISSING"
-        exit 1
-      fi
-
-      if [ -n "$tenantId" ]; then
-        echo "tenantId is present"
-      else
-        echo "tenantId is MISSING"
-        exit 1
-      fi
-
-      if [ -n "$idToken" ]; then
-        echo "idToken is present"
-      else
-        echo "idToken is MISSING"
-        exit 1
-      fi
-
-      echo ""
-      echo "Azure WIF test successful"

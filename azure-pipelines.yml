@@ -19,7 +19,7 @@ variables:
 stages:
 
 # ==========================================================
-# STAGE 1 - VALIDATE AND PLAN
+# STAGE 1 - VALIDATE AND PLAN.
 # ==========================================================
 
 - stage: ValidateAndPlan

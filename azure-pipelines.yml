@@ -5,6 +5,8 @@ pool:
   vmImage: ubuntu-latest
 
 variables:
+- group: terraform-secrets
+
 - name: terraformDirectory
   value: '$(System.DefaultWorkingDirectory)/learn-terraform-azure'
 
@@ -32,17 +34,17 @@ steps:
 - bash: |
     set -e
 
-    echo "Current directory:"
+    echo "Terraform directory:"
     pwd
 
-    echo "Contents:"
-    ls -la
+    echo "Running terraform init against HCP Terraform..."
+    terraform init -input=false
 
-    echo "Terraform files:"
-    ls -la *.tf
-
-    terraform init -backend=false -input=false
+    echo "Running terraform validate..."
     terraform validate
 
   workingDirectory: '$(terraformDirectory)'
-  displayName: 'Terraform Init and Validate'
+  displayName: 'Terraform Init and Validate with HCP'
+
+  env:
+    TF_TOKEN_app_terraform_io: $(TF_TOKEN_app_terraform_io)

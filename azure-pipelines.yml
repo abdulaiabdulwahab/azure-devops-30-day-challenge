@@ -97,7 +97,7 @@ stages:
         scriptType: bash
         scriptLocation: inlineScript
         addSpnToEnvironment: true
-
+        workingDirectory: '$(terraformDirectory)'
         inlineScript: |
 
           set -e
@@ -293,8 +293,10 @@ stages:
               scriptType: bash
               scriptLocation: inlineScript
               addSpnToEnvironment: true
+              workingDirectory: '$(terraformDirectory)'
 
               inlineScript: |
+                
 
                 set -e
 

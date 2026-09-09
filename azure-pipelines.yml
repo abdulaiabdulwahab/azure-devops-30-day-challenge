@@ -29,3 +29,8 @@ steps:
 
     terraform version
   displayName: Install Terraform
+
+- bash: |
+    terraform fmt -check -recursive
+  workingDirectory: '$(terraformDirectory)'
+  displayName: Terraform Format Check

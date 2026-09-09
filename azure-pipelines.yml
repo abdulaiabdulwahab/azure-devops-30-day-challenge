@@ -1,19 +1,338 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
-
 trigger:
-- main
+  branches:
+    include:
+      - main
+
+pr:
+  branches:
+    include:
+      - main
 
 pool:
-  vmImage: ubuntu-latest
+  vmImage: 'ubuntu-latest'
 
-steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+variables:
+  - group: terraform-secrets
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+  - name: terraformDirectory
+    value: '$(System.DefaultWorkingDirectory)/learn-terraform-azure'
+
+  - name: terraformVersion
+    value: '1.16.1'
+
+  - name: azureServiceConnection
+    value: 'sc-azure-terraform-dev'
+
+
+stages:
+
+# ==========================================================
+# STAGE 1 - VALIDATE AND PLAN
+# ==========================================================
+
+- stage: ValidateAndPlan
+  displayName: 'Terraform Validate and Plan'
+
+  jobs:
+
+  - job: TerraformPlan
+    displayName: 'Validate and create Terraform plan'
+
+    steps:
+
+    # ------------------------------------------------------
+    # Checkout GitHub repository
+    # ------------------------------------------------------
+
+    - checkout: self
+      displayName: 'Checkout GitHub repository'
+
+
+    # ------------------------------------------------------
+    # Install Terraform
+    # ------------------------------------------------------
+
+    - bash: |
+        set -e
+
+        echo "Installing Terraform $(terraformVersion)..."
+
+        wget -q \
+          https://releases.hashicorp.com/terraform/$(terraformVersion)/terraform_$(terraformVersion)_linux_amd64.zip
+
+        unzip -q terraform_$(terraformVersion)_linux_amd64.zip
+
+        sudo mv terraform /usr/local/bin/
+
+        terraform version
+      displayName: 'Install Terraform'
+
+
+    # ------------------------------------------------------
+    # Terraform Format Check
+    # ------------------------------------------------------
+
+    - bash: |
+        set -e
+
+        echo "Checking Terraform formatting..."
+
+        terraform fmt -check -recursive
+      workingDirectory: '$(terraformDirectory)'
+      displayName: 'Terraform Format Check'
+
+
+    # ------------------------------------------------------
+    # Terraform Init / Validate / Plan
+    #
+    # AzureCLI@2 authenticates with the WIF service connection.
+    # addSpnToEnvironment exposes the federated identity values.
+    # ------------------------------------------------------
+
+    - task: AzureCLI@2
+      displayName: 'Terraform Init, Validate and Plan'
+
+      inputs:
+        azureSubscription: 'sc-azure-terraform-dev'
+        scriptType: bash
+        scriptLocation: inlineScript
+        addSpnToEnvironment: true
+
+        inlineScript: |
+
+          set -e
+
+          echo "Preparing Azure authentication for Terraform..."
+
+          export ARM_CLIENT_ID="$servicePrincipalId"
+          export ARM_TENANT_ID="$tenantId"
+          export ARM_SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
+          export ARM_USE_OIDC=true
+          export ARM_OIDC_TOKEN="$idToken"
+
+          echo "Azure subscription:"
+          az account show \
+            --query "{name:name,id:id,tenantId:tenantId}" \
+            -o table
+
+          echo ""
+          echo "Terraform working directory:"
+          pwd
+
+          echo ""
+          echo "Running Terraform init..."
+
+          terraform init -input=false
+
+          echo ""
+          echo "Running Terraform validate..."
+
+          terraform validate
+
+          echo ""
+          echo "Creating saved Terraform plan..."
+
+          terraform plan \
+            -input=false \
+            -out=tfplan
+
+          echo ""
+          echo "Creating human-readable Terraform plan..."
+
+          terraform show \
+            -no-color \
+            tfplan > tfplan.txt
+
+          echo ""
+          echo "Terraform plan successfully created."
+
+      workingDirectory: '$(terraformDirectory)'
+
+      env:
+        TF_TOKEN_app_terraform_io: $(TF_TOKEN_app_terraform_io)
+
+
+    # ------------------------------------------------------
+    # Stage plan files for artifact publishing
+    # ------------------------------------------------------
+
+    - bash: |
+
+        set -e
+
+        mkdir -p "$(Build.ArtifactStagingDirectory)/terraform-plan"
+
+        cp "$(terraformDirectory)/tfplan" \
+           "$(Build.ArtifactStagingDirectory)/terraform-plan/tfplan"
+
+        cp "$(terraformDirectory)/tfplan.txt" \
+           "$(Build.ArtifactStagingDirectory)/terraform-plan/tfplan.txt"
+
+        echo "Artifact contents:"
+
+        ls -lah "$(Build.ArtifactStagingDirectory)/terraform-plan"
+
+      displayName: 'Stage Terraform Plan Artifact'
+
+
+    # ------------------------------------------------------
+    # Publish Terraform plan
+    # ------------------------------------------------------
+
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish Terraform Plan'
+
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)/terraform-plan'
+        artifact: 'terraform-plan'
+        publishLocation: 'pipeline'
+
+
+
+# ==========================================================
+# STAGE 2 - APPLY
+# ==========================================================
+
+- stage: Apply
+  displayName: 'Terraform Apply'
+
+  dependsOn:
+    - ValidateAndPlan
+
+  condition: succeeded()
+
+  jobs:
+
+  # Deployment job is required because we target the
+  # terraform-production Azure DevOps Environment.
+  #
+  # The manual Approval Check configured on that environment
+  # runs before this deployment begins.
+
+  - deployment: TerraformApply
+    displayName: 'Apply Approved Terraform Plan'
+
+    environment: 'terraform-production'
+
+    pool:
+      vmImage: 'ubuntu-latest'
+
+    strategy:
+
+      runOnce:
+
+        deploy:
+
+          steps:
+
+          # ------------------------------------------------
+          # Deployment jobs do not automatically checkout
+          # the repository, so explicitly checkout GitHub.
+          # ------------------------------------------------
+
+          - checkout: self
+            displayName: 'Checkout GitHub repository'
+
+
+          # ------------------------------------------------
+          # Install EXACT SAME Terraform version
+          # ------------------------------------------------
+
+          - bash: |
+
+              set -e
+
+              echo "Installing Terraform $(terraformVersion)..."
+
+              wget -q \
+                https://releases.hashicorp.com/terraform/$(terraformVersion)/terraform_$(terraformVersion)_linux_amd64.zip
+
+              unzip -q terraform_$(terraformVersion)_linux_amd64.zip
+
+              sudo mv terraform /usr/local/bin/
+
+              terraform version
+
+            displayName: 'Install Terraform'
+
+
+          # ------------------------------------------------
+          # Download plan created in Stage 1
+          # ------------------------------------------------
+
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Download Terraform Plan'
+
+            inputs:
+              artifact: 'terraform-plan'
+              path: '$(Pipeline.Workspace)/terraform-plan'
+
+
+          # ------------------------------------------------
+          # Display downloaded files without exposing secrets
+          # ------------------------------------------------
+
+          - bash: |
+
+              echo "Downloaded Terraform artifact:"
+
+              ls -lah "$(Pipeline.Workspace)/terraform-plan"
+
+            displayName: 'Verify Terraform Plan Artifact'
+
+
+          # ------------------------------------------------
+          # Terraform Init and Apply
+          # ------------------------------------------------
+
+          - task: AzureCLI@2
+            displayName: 'Terraform Apply'
+
+            inputs:
+              azureSubscription: 'sc-azure-terraform-dev'
+              scriptType: bash
+              scriptLocation: inlineScript
+              addSpnToEnvironment: true
+
+              inlineScript: |
+
+                set -e
+
+                echo "Preparing Azure authentication for Terraform..."
+
+                export ARM_CLIENT_ID="$servicePrincipalId"
+                export ARM_TENANT_ID="$tenantId"
+                export ARM_SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
+                export ARM_USE_OIDC=true
+                export ARM_OIDC_TOKEN="$idToken"
+
+                echo "Azure subscription:"
+                az account show \
+                  --query "{name:name,id:id,tenantId:tenantId}" \
+                  -o table
+
+                echo ""
+                echo "Running Terraform init..."
+
+                terraform init -input=false
+
+                echo ""
+                echo "Copying approved Terraform plan..."
+
+                cp "$(Pipeline.Workspace)/terraform-plan/tfplan" \
+                   "$(terraformDirectory)/tfplan"
+
+                echo ""
+                echo "Applying exact Terraform plan generated in Stage 1..."
+
+                terraform apply \
+                  -input=false \
+                  tfplan
+
+                echo ""
+                echo "Terraform deployment completed."
+
+            workingDirectory: '$(terraformDirectory)'
+
+            env:
+              TF_TOKEN_app_terraform_io: $(TF_TOKEN_app_terraform_io)

@@ -1,29 +1,20 @@
-```yaml
 trigger:
-  branches:
-    include:
-      - main
-
-pr:
-  branches:
-    include:
-      - main
+- main
 
 pool:
-  vmImage: 'ubuntu-latest'
+  vmImage: ubuntu-latest
 
 variables:
-  - group: terraform-secrets
+- group: terraform-secrets
 
-  - name: terraformDirectory
-    value: '$(System.DefaultWorkingDirectory)/learn-terraform-azure'
+- name: terraformDirectory
+  value: '$(System.DefaultWorkingDirectory)/learn-terraform-azure'
 
-  - name: terraformVersion
-    value: '1.13.0'
+- name: terraformVersion
+  value: '1.16.1'
 
-  - name: azureServiceConnection
-    value: 'sc-azure-terraform-dev'
-
+- name: azureServiceConnection
+  value: 'sc-azure-terraform-dev'
 
 stages:
 
@@ -32,26 +23,17 @@ stages:
 # ==========================================================
 
 - stage: ValidateAndPlan
-  displayName: 'Terraform Validate and Plan'
+  displayName: Terraform Validate and Plan
 
   jobs:
 
   - job: TerraformPlan
-    displayName: 'Validate and create Terraform plan'
+    displayName: Validate and create Terraform plan
 
     steps:
 
-    # ------------------------------------------------------
-    # Checkout GitHub repository
-    # ------------------------------------------------------
-
     - checkout: self
-      displayName: 'Checkout GitHub repository'
-
-
-    # ------------------------------------------------------
-    # Install Terraform
-    # ------------------------------------------------------
+      displayName: Checkout GitHub repository
 
     - bash: |
         set -e
@@ -59,36 +41,30 @@ stages:
         echo "Installing Terraform $(terraformVersion)..."
 
         wget -q \
-          https://releases.hashicorp.com/terraform/$(terraformVersion)/terraform_$(terraformVersion)_linux_amd64.zip
+          "https://releases.hashicorp.com/terraform/$(terraformVersion)/terraform_$(terraformVersion)_linux_amd64.zip"
 
-        unzip -q terraform_$(terraformVersion)_linux_amd64.zip
+        unzip -q \
+          "terraform_$(terraformVersion)_linux_amd64.zip"
 
-        sudo mv terraform /usr/local/bin/
+        sudo mv terraform /usr/local/bin/terraform
 
         terraform version
-      displayName: 'Install Terraform'
-
-
-    # ------------------------------------------------------
-    # Terraform Format Check
-    # ------------------------------------------------------
+      displayName: Install Terraform
 
     - bash: |
         set -e
+
+        echo "Terraform working directory:"
+        pwd
 
         echo "Checking Terraform formatting..."
 
         terraform fmt -check -recursive
       workingDirectory: '$(terraformDirectory)'
-      displayName: 'Terraform Format Check'
-
-
-    # ------------------------------------------------------
-    # Terraform Init / Validate / Plan
-    # ------------------------------------------------------
+      displayName: Terraform Format Check
 
     - task: AzureCLI@2
-      displayName: 'Terraform Init, Validate and Plan'
+      displayName: Terraform Init Validate and Plan
 
       inputs:
         azureSubscription: '$(azureServiceConnection)'
@@ -110,47 +86,29 @@ stages:
 
           echo "Azure subscription:"
           az account show \
-            --query "{name:name,id:id,tenantId:tenantId}" \
+            --query "{name:name,id:id}" \
             -o table
 
-          echo ""
-          echo "Terraform working directory:"
-          pwd
-
-          echo ""
-          echo "Running Terraform init..."
-
+          echo "Running terraform init..."
           terraform init -input=false
 
-          echo ""
-          echo "Running Terraform validate..."
-
+          echo "Running terraform validate..."
           terraform validate
 
-          echo ""
           echo "Creating saved Terraform plan..."
-
           terraform plan \
             -input=false \
             -out=tfplan
 
-          echo ""
-          echo "Creating human-readable Terraform plan..."
-
+          echo "Creating text copy of Terraform plan..."
           terraform show \
             -no-color \
             tfplan > tfplan.txt
 
-          echo ""
-          echo "Terraform plan successfully created."
+          echo "Terraform plan created successfully."
 
       env:
         TF_TOKEN_app_terraform_io: $(TF_TOKEN_app_terraform_io)
-
-
-    # ------------------------------------------------------
-    # Stage plan files for artifact publishing
-    # ------------------------------------------------------
 
     - bash: |
         set -e
@@ -158,30 +116,22 @@ stages:
         mkdir -p "$(Build.ArtifactStagingDirectory)/terraform-plan"
 
         cp "$(terraformDirectory)/tfplan" \
-           "$(Build.ArtifactStagingDirectory)/terraform-plan/tfplan"
+          "$(Build.ArtifactStagingDirectory)/terraform-plan/tfplan"
 
         cp "$(terraformDirectory)/tfplan.txt" \
-           "$(Build.ArtifactStagingDirectory)/terraform-plan/tfplan.txt"
+          "$(Build.ArtifactStagingDirectory)/terraform-plan/tfplan.txt"
 
         echo "Artifact contents:"
-
         ls -lah "$(Build.ArtifactStagingDirectory)/terraform-plan"
-
-      displayName: 'Stage Terraform Plan Artifact'
-
-
-    # ------------------------------------------------------
-    # Publish Terraform plan
-    # ------------------------------------------------------
+      displayName: Stage Terraform Plan Artifact
 
     - task: PublishPipelineArtifact@1
-      displayName: 'Publish Terraform Plan'
+      displayName: Publish Terraform Plan
 
       inputs:
         targetPath: '$(Build.ArtifactStagingDirectory)/terraform-plan'
-        artifact: 'terraform-plan'
-        publishLocation: 'pipeline'
-
+        artifact: terraform-plan
+        publishLocation: pipeline
 
 
 # ==========================================================
@@ -189,42 +139,26 @@ stages:
 # ==========================================================
 
 - stage: Apply
-  displayName: 'Terraform Apply'
-
-  dependsOn:
-    - ValidateAndPlan
-
+  displayName: Terraform Apply
+  dependsOn: ValidateAndPlan
   condition: succeeded()
 
   jobs:
 
   - deployment: TerraformApply
-    displayName: 'Apply Approved Terraform Plan'
-
-    environment: 'terraform-production'
+    displayName: Apply Approved Terraform Plan
+    environment: terraform-production
 
     pool:
-      vmImage: 'ubuntu-latest'
+      vmImage: ubuntu-latest
 
     strategy:
-
       runOnce:
-
         deploy:
-
           steps:
 
-          # ------------------------------------------------
-          # Checkout repository
-          # ------------------------------------------------
-
           - checkout: self
-            displayName: 'Checkout GitHub repository'
-
-
-          # ------------------------------------------------
-          # Install same Terraform version
-          # ------------------------------------------------
+            displayName: Checkout GitHub repository
 
           - bash: |
               set -e
@@ -232,49 +166,33 @@ stages:
               echo "Installing Terraform $(terraformVersion)..."
 
               wget -q \
-                https://releases.hashicorp.com/terraform/$(terraformVersion)/terraform_$(terraformVersion)_linux_amd64.zip
+                "https://releases.hashicorp.com/terraform/$(terraformVersion)/terraform_$(terraformVersion)_linux_amd64.zip"
 
-              unzip -q terraform_$(terraformVersion)_linux_amd64.zip
+              unzip -q \
+                "terraform_$(terraformVersion)_linux_amd64.zip"
 
-              sudo mv terraform /usr/local/bin/
+              sudo mv terraform /usr/local/bin/terraform
 
               terraform version
-
-            displayName: 'Install Terraform'
-
-
-          # ------------------------------------------------
-          # Download saved Terraform plan
-          # ------------------------------------------------
+            displayName: Install Terraform
 
           - task: DownloadPipelineArtifact@2
-            displayName: 'Download Terraform Plan'
+            displayName: Download Terraform Plan
 
             inputs:
-              artifact: 'terraform-plan'
-              path: '$(Pipeline.Workspace)/terraform-plan'
-
-
-          # ------------------------------------------------
-          # Verify downloaded artifact
-          # ------------------------------------------------
+              buildType: current
+              artifactName: terraform-plan
+              targetPath: '$(Pipeline.Workspace)/terraform-plan'
 
           - bash: |
               set -e
 
-              echo "Downloaded Terraform artifact:"
-
+              echo "Downloaded Terraform plan:"
               ls -lah "$(Pipeline.Workspace)/terraform-plan"
-
-            displayName: 'Verify Terraform Plan Artifact'
-
-
-          # ------------------------------------------------
-          # Terraform Init and Apply
-          # ------------------------------------------------
+            displayName: Verify Terraform Plan Artifact
 
           - task: AzureCLI@2
-            displayName: 'Terraform Apply'
+            displayName: Terraform Apply
 
             inputs:
               azureSubscription: '$(azureServiceConnection)'
@@ -296,29 +214,24 @@ stages:
 
                 echo "Azure subscription:"
                 az account show \
-                  --query "{name:name,id:id,tenantId:tenantId}" \
+                  --query "{name:name,id:id}" \
                   -o table
 
-                echo ""
-                echo "Running Terraform init..."
-
+                echo "Running terraform init..."
                 terraform init -input=false
 
-                echo ""
-                echo "Copying approved Terraform plan..."
+                echo "Copying saved Terraform plan..."
 
                 cp "$(Pipeline.Workspace)/terraform-plan/tfplan" \
-                   "$(terraformDirectory)/tfplan"
+                  "$(terraformDirectory)/tfplan"
 
-                echo ""
-                echo "Applying exact Terraform plan generated in Stage 1..."
+                echo "Applying approved Terraform plan..."
 
                 terraform apply \
                   -input=false \
                   tfplan
 
-                echo ""
-                echo "Terraform deployment completed."
+                echo "Terraform apply completed."
 
             env:
               TF_TOKEN_app_terraform_io: $(TF_TOKEN_app_terraform_io)

@@ -14,8 +14,18 @@ variables:
   value: '1.13.0'
 
 steps:
+
+# ==========================================================
+# 1. CHECKOUT
+# ==========================================================
+
 - checkout: self
   displayName: 'Checkout repository'
+
+
+# ==========================================================
+# 2. INSTALL TERRAFORM
+# ==========================================================
 
 - bash: |
     set -e
@@ -31,16 +41,24 @@ steps:
     sudo mv terraform /usr/local/bin/terraform
 
     terraform version
+
   displayName: 'Install Terraform'
+
+
+# ==========================================================
+# 3. INIT + VALIDATE + PLAN
+# ==========================================================
 
 - task: AzureCLI@2
   displayName: 'Terraform Init, Validate and Plan'
+
   inputs:
     azureSubscription: 'sc-azure-terraform-dev'
     scriptType: bash
     scriptLocation: inlineScript
     addSpnToEnvironment: true
     workingDirectory: '$(terraformDirectory)'
+
     inlineScript: |
       set -e
 
@@ -51,11 +69,6 @@ steps:
       export ARM_SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
       export ARM_USE_OIDC=true
       export ARM_OIDC_TOKEN="$idToken"
-
-      echo "Azure subscription:"
-      az account show \
-        --query "{name:name,id:id,tenantId:tenantId}" \
-        -o table
 
       echo ""
       echo "Terraform Init"
@@ -71,5 +84,45 @@ steps:
         -input=false \
         -out=tfplan
 
+      echo ""
+      echo "Terraform Plan Output"
+      terraform show -no-color tfplan
+
   env:
     TF_TOKEN_app_terraform_io: $(TF_TOKEN_app_terraform_io)
+
+
+# ==========================================================
+# 4. PREPARE THE PLAN ARTIFACT
+# ADD THIS AFTER THE AzureCLI TASK
+# ==========================================================
+
+- bash: |
+    set -e
+
+    echo "Preparing Terraform plan artifact..."
+
+    mkdir -p "$(Build.ArtifactStagingDirectory)/terraform-plan"
+
+    cp "$(terraformDirectory)/tfplan" \
+       "$(Build.ArtifactStagingDirectory)/terraform-plan/tfplan"
+
+    terraform show -no-color "$(terraformDirectory)/tfplan" \
+      > "$(Build.ArtifactStagingDirectory)/terraform-plan/tfplan.txt"
+
+    echo "Artifact contents:"
+    ls -lah "$(Build.ArtifactStagingDirectory)/terraform-plan"
+
+  displayName: 'Prepare Terraform Plan Artifact'
+
+
+# ==========================================================
+# 5. PUBLISH THE PLAN ARTIFACT
+# ==========================================================
+
+- task: PublishPipelineArtifact@1
+  displayName: 'Publish Terraform Plan'
+  inputs:
+    targetPath: '$(Build.ArtifactStagingDirectory)/terraform-plan'
+    artifact: 'terraform-plan'
+    publishLocation: 'pipeline'

@@ -59,7 +59,7 @@ steps:
 
       echo ""
       echo "Terraform Init"
-      terraform init -reconfigure -input=false
+      terraform init -input=false
 
       echo ""
       echo "Terraform Validate"

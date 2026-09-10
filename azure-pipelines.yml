@@ -91,4 +91,4 @@ steps:
         tfplan
 
   env:
-    TF_TOKEN_app_terraform_io: $(TF_TOKEN_app_terraform_io)
+    TF_TOKEN_app_terraform_io: $(TF_TOKEN_app_terraform_io) 

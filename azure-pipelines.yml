@@ -112,6 +112,7 @@ steps:
 
     echo "Artifact contents:"
     ls -lah "$(Build.ArtifactStagingDirectory)/terraform-plan"
+  workingDirectory: '$(terraformDirectory)'    
 
   displayName: 'Prepare Terraform Plan Artifact'
 

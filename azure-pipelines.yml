@@ -44,7 +44,7 @@ steps:
     inlineScript: |
       set -e
 
-      echo "Configuring Terraform Azure authentication..."
+      echo "Configuring Terraform authentication..."
 
       export ARM_CLIENT_ID="$servicePrincipalId"
       export ARM_TENANT_ID="$tenantId"
@@ -52,43 +52,24 @@ steps:
       export ARM_USE_OIDC=true
       export ARM_OIDC_TOKEN="$idToken"
 
-      echo ""
-      echo "Azure account:"
+      echo "Azure subscription:"
       az account show \
         --query "{name:name,id:id,tenantId:tenantId}" \
         -o table
 
       echo ""
-      echo "=============================="
       echo "Terraform Init"
-      echo "=============================="
-
-      terraform init -input=false
+      terraform init -reconfigure -input=false
 
       echo ""
-      echo "=============================="
       echo "Terraform Validate"
-      echo "=============================="
-
       terraform validate
 
       echo ""
-      echo "=============================="
       echo "Terraform Plan"
-      echo "=============================="
-
       terraform plan \
         -input=false \
         -out=tfplan
 
-      echo ""
-      echo "=============================="
-      echo "Terraform Plan Output"
-      echo "=============================="
-
-      terraform show \
-        -no-color \
-        tfplan
-
   env:
-    TF_TOKEN_app_terraform_io: $(TF_TOKEN_app_terraform_io) 
+    TF_TOKEN_app_terraform_io: $(TF_TOKEN_app_terraform_io)

@@ -1,0 +1,39 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  dockerRegistryServiceConnection: 'sc-acr-devops-api'
+
+  imageRepository: 'devops-api'
+
+  dockerfilePath: '$(Build.SourcesDirectory)day16-docker/Dockerfile'
+
+  tag: '$(Build.BuildId)'
+
+steps:
+
+- checkout: self
+  displayName: 'Checkout GitHub repository'
+
+
+- task: Docker@2
+  displayName: 'Build and push Docker image to ACR'
+
+  inputs:
+
+    command: buildAndPush
+
+    repository: $(imageRepository)
+
+    dockerfile: $(dockerfilePath)
+
+    containerRegistry: $(dockerRegistryServiceConnection)
+
+    tags: |
+      $(tag)
+      latest

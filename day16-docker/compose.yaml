@@ -1,0 +1,15 @@
+services:
+
+  api:
+    build: .
+
+    image: devops-api:v1
+
+    ports:
+      - "8080:8080"
+
+    volumes:
+      - api-data:/data
+
+volumes:
+  api-data:

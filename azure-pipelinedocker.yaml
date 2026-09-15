@@ -11,7 +11,7 @@ variables:
 
   imageRepository: 'devops-api'
 
-  dockerfilePath: '$(Build.SourcesDirectory)day16-docker/Dockerfile'
+  dockerfilePath: 'day16-docker/Dockerfile'
 
   tag: '$(Build.BuildId)'
 

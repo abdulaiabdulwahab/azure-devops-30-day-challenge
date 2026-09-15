@@ -7,7 +7,7 @@ app = flask.Flask(__name__)
 @app.route("/")
 def home():
     return flask.jsonify({
-        "message": "Docker Day 16 is complete!",
+        "message": "Hello from Azure DevOps CI!",
         "hostname": socket.gethostname(),
         "status": "running"
     })

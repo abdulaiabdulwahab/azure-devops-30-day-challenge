@@ -39,15 +39,14 @@ stages:
         echo "Image Tag: $(imageTag)"
       displayName: 'Display Build Information'
 
-- task: Docker@2
-  displayName: 'Build and Push Docker Image'
-  inputs:
-    command: buildAndPush
-    repository: $(imageRepository)
-    dockerfile: $(dockerfilePath)
-    buildContext: '$(Build.SourcesDirectory)/day16-docker'
-    containerRegistry: $(dockerRegistryServiceConnection)
-    azureSubscription: $(dockerRegistryServiceConnection)
-    tags: |
-      $(imageTag)
-      latest
+    - task: Docker@2
+      displayName: 'Build and Push Docker Image'
+      inputs:
+        command: buildAndPush
+        repository: $(imageRepository)
+        dockerfile: $(dockerfilePath)
+        buildContext: '$(Build.SourcesDirectory)/day16-docker'
+        containerRegistry: $(dockerRegistryServiceConnection)
+        tags: |
+          $(imageTag)
+          latest

@@ -11,7 +11,7 @@ pool:
 variables:
   dockerRegistryServiceConnection: 'sc-acr-devops-api'
   imageRepository: 'devops-api'
-  dockerfilePath: '$(Build.SourcesDirectory)/devops-api/Dockerfile'
+  dockerfilePath: '$(Build.SourcesDirectory)/day16-docker/Dockerfile'
   imageTag: '$(Build.BuildId)'
 
 stages:
@@ -45,7 +45,7 @@ stages:
         command: buildAndPush
         repository: $(imageRepository)
         dockerfile: $(dockerfilePath)
-        buildContext: '$(Build.SourcesDirectory)/devops-api'
+        buildContext: '$(Build.SourcesDirectory)/day16-docker'
         containerRegistry: $(dockerRegistryServiceConnection)
         tags: |
           $(imageTag)

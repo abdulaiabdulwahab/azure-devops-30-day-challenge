@@ -1,0 +1,52 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pr: none
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  dockerRegistryServiceConnection: 'sc-acr-devops-api'
+  imageRepository: 'devops-api'
+  dockerfilePath: '$(Build.SourcesDirectory)/devops-api/Dockerfile'
+  imageTag: '$(Build.BuildId)'
+
+stages:
+
+- stage: Build
+  displayName: 'Build and Push'
+
+  jobs:
+
+  - job: DockerBuild
+    displayName: 'Build Docker Image'
+
+    steps:
+
+    - checkout: self
+      displayName: 'Checkout GitHub Repository'
+
+    - bash: |
+        echo "======================================"
+        echo "DevOps API CI Build"
+        echo "======================================"
+        echo "Repository: $(Build.Repository.Name)"
+        echo "Commit: $(Build.SourceVersion)"
+        echo "Build ID: $(Build.BuildId)"
+        echo "Image Tag: $(imageTag)"
+      displayName: 'Display Build Information'
+
+    - task: Docker@2
+      displayName: 'Build and Push Docker Image'
+      inputs:
+        command: buildAndPush
+        repository: $(imageRepository)
+        dockerfile: $(dockerfilePath)
+        buildContext: '$(Build.SourcesDirectory)/devops-api'
+        containerRegistry: $(dockerRegistryServiceConnection)
+        tags: |
+          $(imageTag)
+          latest

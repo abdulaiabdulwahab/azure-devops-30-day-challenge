@@ -9,7 +9,7 @@ pool:
   vmImage: ubuntu-latest
 
 variables:
-  dockerRegistryServiceConnection: 'sc-acr-devops-api'
+  dockerRegistryServiceConnection: 'sc-acr-devops-api-correct'
   imageRepository: 'devops-api'
   dockerfilePath: '$(Build.SourcesDirectory)/day16-docker/Dockerfile'
   imageTag: '$(Build.BuildId)'
